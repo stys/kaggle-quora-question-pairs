@@ -35,6 +35,10 @@ class Fields(object):
     question1 = 'question1'
     question2 = 'question2'
 
+    # counters
+    freq_q1 = 'freq_q1'
+    freq_q2 = 'freq_q2'
+
     # fs-1
     len_q1 = 'len_q1'
     len_q2 = 'len_q2'
@@ -48,20 +52,15 @@ class Fields(object):
 
 
 class FieldsTrain(Fields):
-    id = 'id',
-    qid1 = 'qid1',
-    qid2 = 'qid2',
+    id = 'id'
+    qid1 = 'qid1'
+    qid2 = 'qid2'
     is_duplicate = 'is_duplicate'
-    cv_fold = 'cv_fold'
-    linear_word = 'linear_words'
-    linear_char = 'linear_char'
+    linear = 'linear'
 
 
 class FieldsTest(Fields):
     test_id = 'test_id'
-    linear_word_cv = 'linear_word_cv'
-    linear_word_full = 'linear_word_full'
-    linear_word_full_weighted = 'linear_word_full_weighted'
-    linear_char_cv = 'linear_char_cv'
-    linear_char_full = 'linear_char_full'
-    linear_char_full_weighted = 'linear_char_full_weighted'
+    linear_cv = 'linear_cv'
+    linear_full = 'linear_full'
+    linear_full_weighted = 'linear_full_weighted'

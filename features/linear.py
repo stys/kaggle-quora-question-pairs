@@ -25,7 +25,7 @@ from sklearn.metrics import log_loss, roc_auc_score, roc_curve
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.externals import joblib
 
-from dataset import load_train_df, load_test_df, Fields, FieldsTrain, skfold
+from dataset import load_train_df, load_test_df, Fields, FieldsTrain, FieldsTest, skfold
 from lib.quality import reliability_curve
 
 
@@ -62,7 +62,7 @@ def load_feature_matrix(filename):
 
 def train(X, y, skf, class_weight, **options):
 
-    quality = dict(vectorizer=None, folds=[], full=dict())
+    quality = dict(folds=[], full=dict())
 
     predictions = np.zeros(len(y))
     solver = options.get('solver') or 'lbfgs'
@@ -73,12 +73,18 @@ def train(X, y, skf, class_weight, **options):
     dump_dir = options.get('dump_dir') or '.'
 
     for i, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
-        logging.info('Training model on fold %d', i)
-
-        f = LogisticRegression(solver=solver, penalty=penalty, C=alpha, max_iter=max_iter, random_state=random_state)
         X_train = X[train_idx]
         y_train = y[train_idx]
-        f.fit(X_train, y_train)
+
+        dump_file = join_path(dump_dir, 'model_%d.pkl' % i)
+        try:
+            logging.info('Loading model for fold %d', i)
+            f = joblib.load(dump_file)
+        except:
+            logging.info('Training model on fold %d', i)
+            f = LogisticRegression(solver=solver, penalty=penalty, C=alpha, max_iter=max_iter, random_state=random_state)
+            f.fit(X_train, y_train)
+            joblib.dump(f, dump_file)
 
         p_train = f.predict_proba(X_train)[:, 1]
         ll_train = log_loss(y_train, p_train)
@@ -94,7 +100,7 @@ def train(X, y, skf, class_weight, **options):
 
         p_valid = f.predict_proba(X_valid)[:, 1]
         ll_valid = log_loss(y_valid, p_valid)
-        auc_valid = log_loss(y_valid, p_valid)
+        auc_valid = roc_auc_score(y_valid, p_valid)
 
         logging.info('Validation LL=%s AUC=%s', ll_valid, auc_valid)
 
@@ -103,37 +109,38 @@ def train(X, y, skf, class_weight, **options):
 
         predictions[valid_idx] = logit(p_valid)
 
-        dump_file = join_path(dump_dir, 'model_%d.pkl' % i)
-        joblib.dump(f, dump_file)
-
         quality['folds'].append(dict(
             fold=i,
             dump=dump_file,
             ll=dict(train=ll_train, valid=ll_valid),
             auc=dict(train=auc_train, valid=auc_valid),
             roc=dict(
-                train=dict(fpr=fpr_train, tpr=tpr_train),
-                valid=dict(fpr=fpr_valid, tpr=tpr_valid)
+                train=dict(fpr=fpr_train.tolist(), tpr=tpr_train.tolist()),
+                valid=dict(fpr=fpr_valid.tolist(), tpr=tpr_valid.tolist())
             ),
             reliability=dict(
-                train=dict(y=y_avg_train, p=p_avg_train),
-                valid=dict(y=y_avg_valid, p=p_avg_valid)
+                train=dict(y=y_avg_train.tolist(), p=p_avg_train.tolist()),
+                valid=dict(y=y_avg_valid.tolist(), p=p_avg_valid.tolist())
             )
         ))
 
     # Train full model
-    logging.info('Training full model')
-    f_full = LogisticRegression(solver=solver, penalty=penalty, C=alpha, max_iter=max_iter, random_state=random_state)
-    f_full.fit(X, y)
+    dump_file = join_path(dump_dir, 'model_full.pkl')
+
+    try:
+        logging.info('Loading full model')
+        f_full = joblib.load(dump_file)
+    except:
+        logging.info('Training full model')
+        f_full = LogisticRegression(solver=solver, penalty=penalty, C=alpha, max_iter=max_iter, random_state=random_state)
+        f_full.fit(X, y)
+        joblib.dump(f_full, dump_file)
 
     p_full_train = f_full.predict_proba(X)[:, 1]
     ll_full_train = log_loss(y, p_full_train)
-    auc_full_train = log_loss(y, p_full_train)
+    auc_full_train = roc_auc_score(y, p_full_train)
 
     logging.info('Full LL=%s AUC=%s', ll_full_train, auc_full_train)
-
-    dump_file = join_path(dump_dir, 'model_full.pkl')
-    joblib.dump(f_full, dump_file)
 
     quality['full']['unweighted'] = dict(
         dump=dump_file,
@@ -142,18 +149,22 @@ def train(X, y, skf, class_weight, **options):
     )
 
     # Train full model with estimated class weights
-    logging.info('Training full weighted model')
-    f_full_weighted = LogisticRegression(solver=solver, penalty=penalty, C=alpha, max_iter=max_iter,
+    dump_file = join_path(dump_dir, 'model_full_weighted.pkl')
+
+    try:
+        logging.info('Loading full weighted model')
+        f_full_weighted = joblib.load(dump_file)
+    except:
+        logging.info('Training full weighted model')
+        f_full_weighted = LogisticRegression(solver=solver, penalty=penalty, C=alpha, max_iter=max_iter,
                                          random_state=random_state, class_weight=class_weight)
-    f_full_weighted.fit(X, y)
+        f_full_weighted.fit(X, y)
+        joblib.dump(f_full_weighted, dump_file)
 
     p_full_train_weighted = f_full_weighted.predict_proba(X)[:, 1]
     sample_weight = np.vectorize(class_weight.get)(y)
     ll_full_train_weighted = log_loss(y, p_full_train_weighted, sample_weight=sample_weight)
     auc_full_train_weighted = roc_auc_score(y, p_full_train_weighted, sample_weight=sample_weight)
-
-    dump_file = join_path(dump_dir, 'model_full_weighted.pkl')
-    joblib.dump(f_full_weighted, dump_file)
 
     quality['full']['weighted'] = dict(
         dump=dump_file,
@@ -185,17 +196,19 @@ def main(conf):
         vectorizer_file = join_path(dump_dir, 'vectorizer.pkl')
         quality_file = join_path(dump_dir, 'quality.json')
 
-        y = np.array(train_df[[FieldsTrain.is_duplicate]])
+        y = train_df[FieldsTrain.is_duplicate]
 
         if cnf['dump.cache.enabled']:
-            logging.info('Loading cached train feature matrix')
-
+            logging.info('Loading vectorizer')
             try:
                 vectorizer = joblib.load(vectorizer_file)
             except:
+                logging.info('Unable to load vectorizer')
                 vectorizer = None
 
-            X = load_feature_matrix(join_path(dump_dir, cnf['dump.cache.train']))
+            features_cache_file = join_path(dump_dir, cnf['dump.cache.train'])
+            logging.info('Loading cached train feature matrix from %s', features_cache_file)
+            X = load_feature_matrix(features_cache_file)
 
             if vectorizer is None or X is None:
                 logging.info('Unable to load cached train feature matrix')
@@ -211,8 +224,8 @@ def main(conf):
                 logging.info('Computing train feature matrix')
                 X = compute_feature_matrix(train_df, vectorizer)
 
-                logging.info('Writing train feature matrix to cache')
-                save_feature_matrix(X, join_path(dump_dir, cnf['dump.cache.train']))
+                logging.info('Writing train feature matrix to %s', features_cache_file)
+                save_feature_matrix(X, features_cache_file)
         else:
             logging.info('Training vectorizer')
             vectorizer = train_vectorizer(train_df, **cnf['vectorizer'])
@@ -220,46 +233,62 @@ def main(conf):
             nf = len(vectorizer.vocabulary_)
             logging.info('Feature count: %d', nf)
 
+        logging.info('Training feature matrix: %s', X.shape)
+
         quality, predictions = train(X, y, skfold(), class_weight, dump_dir=dump_dir, **cnf['model'])
-        json.dump(quality, quality_file)
+
+        with open(quality_file, 'w') as qfh:
+            json.dump(quality, qfh)
 
         logging.info('Writing train set to disk')
-        train_df['linear'] = predictions
-        train_df.to_csv(join_path(dump_dir, 'train.csv'))
+        train_df[FieldsTrain.linear] = predictions
+        train_df[[
+            FieldsTrain.id,
+            FieldsTrain.is_duplicate,
+            FieldsTrain.linear
+        ]].to_csv(join_path(dump_dir, 'train.csv'), index=False)
 
         if cnf['dump.cache.enabled']:
-            logging.info('Loading cached test feature matrix')
-            X = load_feature_matrix(join_path(dump_dir, cnf['dump.cache.test']))
+            features_cache_file = join_path(dump_dir, cnf['dump.cache.test'])
+
+            logging.info('Loading cached test feature matrix from %s', features_cache_file)
+            X = load_feature_matrix(features_cache_file)
             if X is None:
                 logging.info('Unable to load cached test feature matrix')
                 logging.info('Computing test feature matrix')
                 X = compute_feature_matrix(test_df, vectorizer)
 
                 logging.info('Writing test feature matrix to cache')
-                save_feature_matrix(X, cnf['dump.cache.test'])
+                save_feature_matrix(X, features_cache_file)
         else:
             logging.info('Computing test feature matrix')
             X = compute_feature_matrix(test_df, vectorizer)
 
         logging.info('Computing test predictions as average logit of cross-validation models')
+        test_df[FieldsTest.linear_cv] = np.zeros(X.shape[0])
         for fold in quality['folds']:
             f = joblib.load(fold['dump'])
             p = logit(f.predict_proba(X)[:, 1])
-            test_df['linear_cv'] = test_df['linear_cv'] + p
-        test_df['linear_cv'] /= len(quality['folds'])
+            test_df[FieldsTest.linear_cv] = test_df[FieldsTest.linear_cv] + p
+        test_df[FieldsTest.linear_cv] = test_df[FieldsTest.linear_cv] / len(quality['folds'])
 
         logging.info('Computing test predictions with full model')
         f = joblib.load(quality['full']['unweighted']['dump'])
         p = logit(f.predict_proba(X)[:, 1])
-        test_df['linear_full'] = p
+        test_df[FieldsTest.linear_full] = p
 
         logging.info('Computing test predictions with full weighted model')
         f = joblib.load(quality['full']['weighted']['dump'])
         p = logit(f.predict_proba(X)[:, 1])
-        test_df['linear_full_weighted'] = p
+        test_df[FieldsTest.linear_full_weighted] = p
 
         logging.info('Writing test set to disk')
-        test_df.to_csv(join_path(dump_dir, 'test.csv'))
+        test_df[[
+            FieldsTest.test_id,
+            FieldsTest.linear_cv,
+            FieldsTest.linear_full,
+            FieldsTest.linear_full_weighted
+        ]].to_csv(join_path(dump_dir, 'test.csv'), index=False)
 
 if __name__ == '__main__':
     import project
