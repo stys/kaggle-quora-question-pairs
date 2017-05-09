@@ -5,22 +5,19 @@ Question frequencies are correlated with duplicate probability
 https://www.kaggle.com/jturkewitz/magic-features-0-03-gain
 """
 
-import logging
-
 import errno
-
+import json
+import logging
 from os import makedirs
 from os.path import join as join_path
 
+import numpy as np
 import pandas as pd
 
-import json
-
-from sklearn.metrics import roc_auc_score
 from sklearn.externals import joblib
+from sklearn.metrics import roc_auc_score
 
-from dataset import load_train_df, load_test_df, FieldsTrain, FieldsTest
-
+from lib.dataset import load_train_df, load_test_df, FieldsTrain, FieldsTest
 
 def counters(train_df, test_df, **options):
 
@@ -34,11 +31,11 @@ def counters(train_df, test_df, **options):
 
     counts = questions['q'].value_counts().to_dict()
 
-    train_df[FieldsTrain.freq_q1] = train_df[FieldsTrain.question1].map(lambda q: counts.get(q, 0))
-    train_df[FieldsTrain.freq_q2] = train_df[FieldsTrain.question2].map(lambda q: counts.get(q, 0))
+    train_df[FieldsTrain.freq_q1] = train_df[FieldsTrain.question1].map(lambda q: np.log(counts.get(q, 1)))
+    train_df[FieldsTrain.freq_q2] = train_df[FieldsTrain.question2].map(lambda q: np.log(counts.get(q, 1)))
 
-    test_df[FieldsTest.freq_q1] = test_df[FieldsTest.question1].map(lambda q: counts.get(q, 0))
-    test_df[FieldsTest.freq_q2] = test_df[FieldsTest.question2].map(lambda q: counts.get(q, 0))
+    test_df[FieldsTest.freq_q1] = test_df[FieldsTest.question1].map(lambda q: np.log(counts.get(q, 1)))
+    test_df[FieldsTest.freq_q2] = test_df[FieldsTest.question2].map(lambda q: np.log(counts.get(q, 1)))
 
     correlation = train_df[[FieldsTrain.is_duplicate, FieldsTrain.freq_q1, FieldsTrain.freq_q2]].corr()
     auc_q1 = roc_auc_score(train_df[FieldsTrain.is_duplicate], train_df[FieldsTrain.freq_q1])

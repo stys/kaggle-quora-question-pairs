@@ -5,28 +5,23 @@ Shallow benchmark
 https://www.kaggle.com/selfishgene/shallow-benchmark-0-31675-lb
 """
 
+import json
 import logging
 
-import errno
-
 from os.path import join as join_path
-from os import makedirs
-
-import json
 
 import numpy as np
 import pandas as pd
-
-from scipy.special import logit
 from scipy.sparse import csr_matrix
-
+from scipy.special import logit
+from sklearn.externals import joblib
+from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss, roc_auc_score, roc_curve
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.externals import joblib
 
-from dataset import load_train_df, load_test_df, Fields, FieldsTrain, FieldsTest, skfold
+from lib.dataset import load_train_df, load_test_df, Fields, FieldsTrain, FieldsTest, skfold
 from lib.quality import reliability_curve
+from lib.utils import makedirs
 
 
 def train_vectorizer(train_df, analyzer, ngram_range, min_df):
@@ -186,12 +181,7 @@ def main(conf):
 
     for w, cnf in conf['linear'].iteritems():
         dump_dir = cnf.get('dump.dir') or '.'
-
-        try:
-            makedirs(dump_dir)
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise
+        makedirs(dump_dir)
 
         vectorizer_file = join_path(dump_dir, 'vectorizer.pkl')
         quality_file = join_path(dump_dir, 'quality.json')

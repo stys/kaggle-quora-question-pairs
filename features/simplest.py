@@ -5,16 +5,15 @@ Simplest features from Abhishek's fs-1
 https://www.linkedin.com/pulse/duplicate-quora-question-abhishek-thakur
 """
 
+import errno
 import logging
 import re
-import errno
-
-from os.path import join as join_path
 from os import makedirs
+from os.path import join as join_path
 
 from sklearn.metrics import roc_auc_score
 
-from dataset import Fields, FieldsTrain, FieldsTest, load_train_df, load_test_df
+from lib.dataset import Fields, FieldsTrain, FieldsTest, load_train_df, load_test_df
 
 
 def compute_quality(train_df, feature):
@@ -43,11 +42,11 @@ def compute_features(train_df, test_df):
     quality_len_word_q1 = compute_quality(train_df, Fields.len_word_q1)
 
     train_df[Fields.len_word_q2] = train_df[Fields.question2].map(lambda q: len(q.split()))
-    test_df[Fields.len_word_q2] = train_df[Fields.question2].map(lambda q: len(q.split()))
+    test_df[Fields.len_word_q2] = test_df[Fields.question2].map(lambda q: len(q.split()))
     quality_len_word_q2 = compute_quality(train_df, Fields.len_word_q2)
 
     train_df[Fields.diff_len_word] = abs(train_df[Fields.len_word_q1] - train_df[Fields.len_word_q2])
-    test_df[Fields.diff_len_word] = abs(test_df[Fields.len_word_q1] - train_df[Fields.len_word_q2])
+    test_df[Fields.diff_len_word] = abs(test_df[Fields.len_word_q1] - test_df[Fields.len_word_q2])
     quality_diff_len_word = compute_quality(train_df, Fields.diff_len_word)
 
     pattern = re.compile('\s.')

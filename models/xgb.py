@@ -4,26 +4,32 @@
 Train main XGBoost model
 """
 
-import logging
+from __future__ import division
 
+import operator
+import logging
 from os.path import join as join_path
 
 import numpy as np
 import pandas as pd
-
 import xgboost as xgb
-
 from sklearn.model_selection import train_test_split
 
-from dataset import load_train_df, load_test_df, FieldsTrain, FieldsTest, skfold, submission
+from lib.dataset import load_train_df, load_test_df, FieldsTrain, FieldsTest, skfold, submission
 from lib.utils import makedirs
 
 
+def create_feature_map(features, feature_map_file):
+    with open(feature_map_file, 'w') as fh:
+        for i, feat in enumerate(features):
+            fh.write('{0}\t{1}\tq\n'.format(i, feat))
+
+
 def train_xgboost(train_df, test_df, skf, class_weight, **param):
-    y = train_df[[FieldsTrain.is_duplicate]]
+    y = train_df[[FieldsTrain.is_duplicate]].values.flatten()
     train_df.drop([FieldsTrain.id, FieldsTrain.qid1, FieldsTrain.qid2, FieldsTrain.question1, FieldsTrain.question2, FieldsTrain.is_duplicate], axis=1, inplace=True)
 
-    test_id = test_df[[FieldsTest.test_id]]
+    test_ids = test_df[[FieldsTest.test_id]]
     test_df.drop([FieldsTest.test_id, FieldsTest.question1, FieldsTest.question2], axis=1, inplace=True)
     X = train_df.values
 
@@ -40,7 +46,9 @@ def train_xgboost(train_df, test_df, skf, class_weight, **param):
 
     model = xgb.train(param, dtrain, param['num_round'], evallist)
     p_test = model.predict(dtest)
-    submission('submission12.csv', test_id, p_test)
+    submission('submission17.csv', test_ids, p_test)
+
+    return model
 
 
 def main(conf):
@@ -55,7 +63,7 @@ def main(conf):
 
     logging.info('Loading features')
     features = []
-    for group, cnf in conf['xgboost.features'].iteritems():
+    for group, cnf in conf['features'].iteritems():
         logging.info('Loading features group: %s', group)
 
         features_dump_dir = cnf['dump']
@@ -73,9 +81,27 @@ def main(conf):
             train_df[feature] = train_features[train_col]
             test_df[feature] = test_features[test_col]
 
-    class_weight = {int(c['class']): c['weight'] for c in conf['weights']}
+    feature_map_file = join_path(dump_dir, 'xgb.fmap')
+    create_feature_map(features, feature_map_file)
 
-    train_xgboost(train_df, test_df, skfold(), class_weight, **conf['xgboost.param'])
+    # y = train_df[[FieldsTrain.is_duplicate]].values.flatten()
+    # logging.info('Train dataset CTR: %s', y.sum() / len(y))
+    #
+
+    class_weight = {int(c['class']): c['weight'] for c in conf['weights']}
+    # w = np.vectorize(class_weight.get)(y)
+    # logging.info('Train dataset weighted CTR: %s', sum(y * w) / sum(w))
+    #
+    # for feature in features:
+    #     print pd.concat([train_df[[feature]].describe(), test_df[[feature]].describe()], axis=1)
+    #
+    # exit()
+
+    model = train_xgboost(train_df, test_df, skfold(), class_weight, **conf['xgboost.param'])
+
+    importance = model.get_fscore(fmap=feature_map_file)
+    for f in sorted(importance.items(), key=operator.itemgetter(1)):
+        print f
 
 if __name__ == '__main__':
     import project
