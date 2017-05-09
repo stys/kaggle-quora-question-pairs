@@ -86,6 +86,7 @@ def main(conf):
             continue
 
         logging.info('Start traning SVD model %s', f)
+
         dump_dir = cnf['dump.dir']
         makedirs(dump_dir)
         logging.info('Dump %s', dump_dir)

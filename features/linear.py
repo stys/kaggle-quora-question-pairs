@@ -21,7 +21,7 @@ from sklearn.metrics import log_loss, roc_auc_score, roc_curve
 
 from lib.dataset import load_train_df, load_test_df, Fields, FieldsTrain, FieldsTest, skfold
 from lib.quality import reliability_curve
-from lib.utils import makedirs
+from lib.utils import makedirs, dump_config
 
 
 def train_vectorizer(train_df, analyzer, ngram_range, min_df):
@@ -37,10 +37,16 @@ def train_vectorizer(train_df, analyzer, ngram_range, min_df):
     return vectorizer
 
 
-def compute_feature_matrix(df, vectorizer):
+def compute_feature_matrix(df, vectorizer, combine=None):
+
     fq1 = vectorizer.transform(df.ix[:, Fields.question1])
     fq2 = vectorizer.transform(df.ix[:, Fields.question2])
-    return abs(fq1 - fq2).tocsr()
+
+    if combine == 'diff':
+        return abs(fq1 - fq2).tocsr()
+
+    if combine == 'intersect':
+        return fq1.multiply(fq2).tocsr()
 
 
 def save_feature_matrix(X, filename):
@@ -180,8 +186,16 @@ def main(conf):
     class_weight = {int(c['class']): c['weight'] for c in conf['weights']}
 
     for w, cnf in conf['linear'].iteritems():
+        if not cnf.get_bool('enabled', True):
+            continue
+
+        logging.info('Start training linear model: %s', w)
+
         dump_dir = cnf.get('dump.dir') or '.'
         makedirs(dump_dir)
+
+        config_file = join_path(dump_dir, 'application.conf')
+        dump_config(conf, config_file)
 
         vectorizer_file = join_path(dump_dir, 'vectorizer.pkl')
         quality_file = join_path(dump_dir, 'quality.json')
@@ -190,18 +204,14 @@ def main(conf):
 
         if cnf['dump.cache.enabled']:
             logging.info('Loading vectorizer')
+
             try:
                 vectorizer = joblib.load(vectorizer_file)
             except:
                 logging.info('Unable to load vectorizer')
                 vectorizer = None
 
-            features_cache_file = join_path(dump_dir, cnf['dump.cache.train'])
-            logging.info('Loading cached train feature matrix from %s', features_cache_file)
-            X = load_feature_matrix(features_cache_file)
-
-            if vectorizer is None or X is None:
-                logging.info('Unable to load cached train feature matrix')
+            if vectorizer is None:
                 logging.info('Training vectorizer')
 
                 vectorizer = train_vectorizer(train_df, **cnf['vectorizer'])
@@ -211,15 +221,22 @@ def main(conf):
                 logging.info('Dumping vectorizer')
                 joblib.dump(vectorizer, vectorizer_file)
 
+            features_cache_file = join_path(dump_dir, cnf['dump.cache.train'])
+            logging.info('Loading cached train feature matrix from %s', features_cache_file)
+            X = load_feature_matrix(features_cache_file)
+
+            if X is None:
+                logging.info('Unable to load cached train feature matrix')
+
                 logging.info('Computing train feature matrix')
-                X = compute_feature_matrix(train_df, vectorizer)
+                X = compute_feature_matrix(train_df, vectorizer, combine=cnf['combine'])
 
                 logging.info('Writing train feature matrix to %s', features_cache_file)
                 save_feature_matrix(X, features_cache_file)
         else:
             logging.info('Training vectorizer')
             vectorizer = train_vectorizer(train_df, **cnf['vectorizer'])
-            X = compute_feature_matrix(train_df, vectorizer)
+            X = compute_feature_matrix(train_df, vectorizer, combine=cnf['combine'])
             nf = len(vectorizer.vocabulary_)
             logging.info('Feature count: %d', nf)
 
@@ -246,13 +263,13 @@ def main(conf):
             if X is None:
                 logging.info('Unable to load cached test feature matrix')
                 logging.info('Computing test feature matrix')
-                X = compute_feature_matrix(test_df, vectorizer)
+                X = compute_feature_matrix(test_df, vectorizer, combine=cnf['combine'])
 
                 logging.info('Writing test feature matrix to cache')
                 save_feature_matrix(X, features_cache_file)
         else:
             logging.info('Computing test feature matrix')
-            X = compute_feature_matrix(test_df, vectorizer)
+            X = compute_feature_matrix(test_df, vectorizer, combine=cnf['combine'])
 
         logging.info('Computing test predictions as average logit of cross-validation models')
         test_df[FieldsTest.linear_cv] = np.zeros(X.shape[0])

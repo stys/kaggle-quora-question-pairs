@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from lib.dataset import load_train_df, load_test_df
 
 
