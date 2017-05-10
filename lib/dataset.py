@@ -51,6 +51,15 @@ class Fields(object):
     len_word_q2 = 'len_word_q2'
     diff_len_word = 'diff_len_word'
 
+    # fs-2 (fuzzy)
+    qratio = 'qratio'
+    wratio = 'wratio'
+    partial_ratio = 'partial_ratio'                         # Ignore punctuation marks
+    partial_token_set_ratio = 'partial_token_set_ratio'     # Ignore duplicating words, order and punctuation
+    partial_token_sort_ratio = 'partial_token_sort_ratio'   # Ignore order and punctuation
+    token_set_ratio = 'token_set_ratio'                     # Ignore duplicating words and order
+    token_sort_ratio = 'token_sort_ratio'                   # Ignore the words' order
+
 
 class FieldsTrain(Fields):
     id = 'id'
