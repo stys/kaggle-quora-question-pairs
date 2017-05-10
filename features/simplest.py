@@ -13,6 +13,7 @@ from os.path import join as join_path
 
 from sklearn.metrics import roc_auc_score
 
+from lib.project import project
 from lib.dataset import Fields, FieldsTrain, FieldsTest, load_train_df, load_test_df
 
 
@@ -125,5 +126,4 @@ def main(conf):
 
 
 if __name__ == '__main__':
-    import project
-    main(project.conf)
+    main(project().conf)

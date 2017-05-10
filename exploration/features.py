@@ -5,20 +5,17 @@ Compute feature set statistics
 """
 
 import logging
-
 from os.path import join as join_path
 
-import numpy as np
 import pandas as pd
 import seaborn as sns
-
 from matplotlib import pyplot as plt
-
-from lib.utils import makedirs
-from lib.dataset import load_train_df, load_test_df, skfold, FieldsTrain
-
 from nbformat import write as nb_write
-from nbformat.v4 import new_notebook, new_code_cell, new_markdown_cell, new_output
+from nbformat.v4 import new_notebook, new_markdown_cell
+
+from lib.project import project
+from lib.dataset import load_train_df, load_test_df, FieldsTrain
+from lib.utils import makedirs
 
 
 def main(conf):
@@ -82,5 +79,4 @@ def main(conf):
 
 
 if __name__ == '__main__':
-    import project
-    main(project.conf)
+    main(project().conf)

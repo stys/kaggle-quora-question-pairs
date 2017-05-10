@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 
+"""
+Basic text cleaning as given in following kernels
+https://www.kaggle.com/currie32/the-importance-of-cleaning-text
+https://www.kaggle.com/lystdo/lstm-with-word2vec-embeddings
+"""
 
 import logging
 import re
-
-from os.path import join as join_path
 from collections import namedtuple
+from os.path import join as join_path
 
 from nltk.corpus import stopwords as nltk_stopwords
 from nltk.stem import SnowballStemmer
@@ -99,5 +103,6 @@ def main(conf):
     test_df.to_csv(join_path(dump_dir, 'test.csv'), index=False)
 
 if __name__ == '__main__':
-    import project
+    from lib import project
+
     main(conf=project.conf)

@@ -5,19 +5,17 @@ SVD features from sparce matrix of word and char ngrams
 """
 
 import logging
-
 from os.path import join as join_path
 
 import numpy as np
 import pandas as pd
-
 from scipy.sparse import csr_matrix, vstack as sparse_vstack
 from scipy.sparse.linalg import svds
-
+from sklearn.externals import joblib
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import roc_auc_score
-from sklearn.externals import joblib
 
+from lib.project import project
 from lib.dataset import Fields, FieldsTrain, FieldsTest, load_train_df, load_test_df
 from lib.utils import makedirs
 
@@ -167,5 +165,4 @@ def main(conf):
         test_df[[FieldsTest.test_id] + features].to_csv(test_file, index=False)
 
 if __name__ == '__main__':
-    import project
-    main(project.conf)
+    main(project().conf)

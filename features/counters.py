@@ -13,11 +13,12 @@ from os.path import join as join_path
 
 import numpy as np
 import pandas as pd
-
 from sklearn.externals import joblib
 from sklearn.metrics import roc_auc_score
 
+from lib.project import project
 from lib.dataset import load_train_df, load_test_df, FieldsTrain, FieldsTest
+
 
 def counters(train_df, test_df, **options):
 
@@ -93,5 +94,4 @@ def main(conf):
 
 
 if __name__ == '__main__':
-    import project
-    main(project.conf)
+    main(project().conf)

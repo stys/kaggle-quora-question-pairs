@@ -7,7 +7,6 @@ https://www.kaggle.com/selfishgene/shallow-benchmark-0-31675-lb
 
 import json
 import logging
-
 from os.path import join as join_path
 
 import numpy as np
@@ -19,6 +18,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss, roc_auc_score, roc_curve
 
+from lib.project import project
 from lib.dataset import load_train_df, load_test_df, Fields, FieldsTrain, FieldsTest, skfold
 from lib.quality import reliability_curve
 from lib.utils import makedirs, dump_config
@@ -298,5 +298,4 @@ def main(conf):
         ]].to_csv(join_path(dump_dir, 'test.csv'), index=False)
 
 if __name__ == '__main__':
-    import project
-    main(project.conf)
+    main(project().conf)

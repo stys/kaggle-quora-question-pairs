@@ -4,7 +4,8 @@ from os.path import join
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
-from project import conf
+from lib.project import project
+conf = project().conf
 
 
 def _load_df(filename):
