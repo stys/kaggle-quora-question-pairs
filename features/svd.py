@@ -72,9 +72,18 @@ def load_feature_matrix(filename):
         return None
 
 
+def compute_svd_distance_eucl(row, fstem, ncomponents=10):
+    dist = 0
+    for j in xrange(ncomponents):
+        fq1 = row[fstem + ('_%d_q1' % j)]
+        fq2 = row[fstem + ('_%d_q2' % j)]
+        dist += (fq1 - fq2) ** 2
+    return dist
+
+
 def main(conf):
     logging.info('Loading train dataset')
-    train_df = load_train_df()
+    train_df = load_train_df(conf['svd'][''])
 
     logging.info('Loading test dataset')
     test_df = load_test_df()
@@ -113,6 +122,7 @@ def main(conf):
             save_feature_matrix(X, train_features_matrix_file)
 
         logging.info('Computing SVD decomposition')
+        ksvd = cnf['model'].get_int('k')
         S, VT = compute_svd(X.asfptype(), **cnf['model'])
         Sinv = np.diag(1. / S) * np.sqrt(X.shape[0])
         logging.info('Singular values %s', S)
@@ -127,6 +137,9 @@ def main(conf):
             train_features_df_q1 = pd.DataFrame(U[:train_df.shape[0], :], columns=features_q1)
             train_features_df_q2 = pd.DataFrame(U[train_df.shape[0]:, :], columns=features_q2)
             train_df = pd.concat([train_df, train_features_df_q1, train_features_df_q2], axis=1)
+
+            train_df['svd_dist_eucl'] = train_df.apply(lambda r: compute_svd_distance_eucl(r, f, ksvd), axis=1)
+            features.append('svd_dist_eucl')
         else:
             train_features_df = pd.DataFrame(U, columns=features)
             train_df = pd.concat([train_df, train_features_df], axis=1)
@@ -148,14 +161,15 @@ def main(conf):
 
             logging.info('Writing test feature matrix dump')
 
-        logging.info('Computing test SVD features')
         U = X.dot(VT.transpose()).dot(Sinv)
         logging.info('Test features variance: %s', np.var(U, axis=0))
 
+        logging.info('Computing test SVD features')
         if cnf.get('model.transform', None) == 'stack':
             test_features_df_q1 = pd.DataFrame(U[:test_df.shape[0], :], columns=features_q1)
             test_features_df_q2 = pd.DataFrame(U[test_df.shape[0]:, :], columns=features_q2)
             test_df = pd.concat([test_df, test_features_df_q1, test_features_df_q2], axis=1)
+            test_df['svd_dist_eucl'] = test_df.apply(lambda r: compute_svd_distance_eucl(r, f, ksvd), axis=1)
         else:
             test_features_df = pd.DataFrame(U, columns=features)
             test_df = pd.concat([test_df, test_features_df], axis=1)

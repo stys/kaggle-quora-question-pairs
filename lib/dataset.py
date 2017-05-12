@@ -8,17 +8,17 @@ from lib.project import project
 conf = project().conf
 
 
-def _load_df(filename):
+def _load_df(filename, fillna):
     with codecs.open(filename) as f:
-        return pd.read_csv(f).fillna(conf['dataset.fillna'])
+        return pd.read_csv(f).fillna(fillna)
 
 
-def load_train_df():
-    return _load_df(join(conf['dataset.dir'], conf['dataset.train']))
+def load_train_df(conf):
+    return _load_df(join(conf['dir'], conf['train']), conf['fillna'])
 
 
-def load_test_df():
-    return _load_df(join(conf['dataset.dir'], conf['dataset.test']))
+def load_test_df(conf):
+    return _load_df(join(conf['dir'], conf['test']), conf['fillna'])
 
 
 def skfold():
@@ -50,6 +50,21 @@ class Fields(object):
     len_word_q1 = 'len_word_q1'
     len_word_q2 = 'len_word_q2'
     diff_len_word = 'diff_len_word'
+
+    # word2vec
+    w2v_wmd = 'w2v_wmd'
+    w2v_wmd_norm = 'w2v_wmd_norm'
+    w2v_cos = 'w2v_cos'
+    w2v_city = 'w2v_city'
+    w2v_jacc = 'w2v_jacc'
+    w2v_canb = 'w2v_canb'
+    w2v_eucl = 'w2v_eucl'
+    w2v_mink = 'w2v_mink'
+    w2v_bray = 'w2v_bray'
+    w2v_skew_q1 = 'w2v_skew_q1'
+    w2v_skew_q2 = 'w2v_skew_q2'
+    w2v_kurt_q1 = 'w2v_kurt_q1'
+    w2v_kurt_q2 = 'w2v_kurt_q2'
 
 
 class FieldsTrain(Fields):
