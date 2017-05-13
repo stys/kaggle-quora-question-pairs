@@ -9,7 +9,7 @@ from argparse import ArgumentParser
 
 from pyhocon import ConfigFactory, ConfigTree
 
-#logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s %(message)s', level=logging.DEBUG, datefmt='%Y-%m-%d %I:%M:%S')
+logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s %(message)s', level=logging.DEBUG, datefmt='%Y-%m-%d %I:%M:%S')
 
 instance = None
 

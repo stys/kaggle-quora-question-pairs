@@ -4,5 +4,5 @@
 
 *.pyc
 
-dumps
+dumps*
 submissions

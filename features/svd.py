@@ -83,12 +83,15 @@ def compute_svd_distance_eucl(row, fstem, ncomponents=10):
 
 def main(conf):
     logging.info('Loading train dataset')
-    train_df = load_train_df(conf['svd'][''])
+    train_df = load_train_df(conf['svd.dataset'])
 
     logging.info('Loading test dataset')
-    test_df = load_test_df()
+    test_df = load_test_df(conf['svd.dataset'])
 
     for f, cnf in conf['svd'].iteritems():
+        if f == 'dataset':
+            continue
+
         if not cnf.get('enabled', True):
             continue
 

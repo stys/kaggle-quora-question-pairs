@@ -131,10 +131,10 @@ def main(conf):
     dump_config(conf, dump_config_file)
 
     logging.info('Loading train dataset')
-    train_df = load_train_df()
+    train_df = load_train_df(conf['xgboost.dataset'])
 
     logging.info('Loading test dataset')
-    test_df = load_test_df()
+    test_df = load_test_df(conf['xgboost.dataset'])
 
     logging.info('Loading features')
     features = []

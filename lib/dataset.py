@@ -39,6 +39,8 @@ class Fields(object):
     # counters
     freq_q1 = 'freq_q1'
     freq_q2 = 'freq_q2'
+    count_q1 = 'count_q1'
+    count_q2 = 'count_q2'
 
     # fs-1
     len_q1 = 'len_q1'
