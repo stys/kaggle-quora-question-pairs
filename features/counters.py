@@ -28,14 +28,12 @@ class HashCounter(object):
 
     def update(self, q1, q2):
         if q1 not in self.data:
-            self.data[q1] = [next(self.sequence), 1]
-        else:
-            self.data[q1][1] += 1
+            self.data[q1] = next(self.sequence)
+
         if q2 not in self.data:
-            self.data[q2] = [next(self.sequence), 1]
-        else:
-            self.data[q2][1] += 1
-        return self.data[q1][1], self.data[q2][1]
+            self.data[q2] = next(self.sequence)
+
+        return self.data[q1], self.data[q2]
 
 
 def counters(train_df, test_df, **options):
@@ -70,15 +68,15 @@ def counters(train_df, test_df, **options):
     )
 
     hashing = HashCounter()
-    train_df['count_q1'], train_df['count_q2'] = zip(*train_df.apply(lambda r: hashing.update(r[Fields.question1], r[Fields.question2]), axis=1))
-    test_df['count_q1'], test_df['count_q2'] = zip(*test_df.apply(lambda r: hashing.update(r[Fields.question1], r[Fields.question2]), axis=1))
+    train_df['hash_q1'], train_df['hash_q2'] = zip(*train_df.apply(lambda r: hashing.update(r[Fields.question1], r[Fields.question2]), axis=1))
+    test_df['hash_q1'], test_df['hash_q2'] = zip(*test_df.apply(lambda r: hashing.update(r[Fields.question1], r[Fields.question2]), axis=1))
 
-    correlation = train_df[[FieldsTrain.is_duplicate, FieldsTrain.count_q1, FieldsTrain.count_q2]].corr()
-    auc_q1 = roc_auc_score(train_df[FieldsTrain.is_duplicate], train_df[FieldsTrain.count_q1])
-    auc_q2 = roc_auc_score(train_df[FieldsTrain.is_duplicate], train_df[FieldsTrain.count_q2])
+    correlation = train_df[[FieldsTrain.is_duplicate, FieldsTrain.hash_q1, FieldsTrain.hash_q2]].corr()
+    auc_q1 = roc_auc_score(train_df[FieldsTrain.is_duplicate], train_df[FieldsTrain.hash_q1])
+    auc_q2 = roc_auc_score(train_df[FieldsTrain.is_duplicate], train_df[FieldsTrain.hash_q2])
 
-    logging.info("Count of question1 AUC=%s", auc_q1)
-    logging.info("Count of question2 AUC=%s", auc_q2)
+    logging.info("Hash of question1 AUC=%s", auc_q1)
+    logging.info("Hash of question2 AUC=%s", auc_q2)
     print correlation
     quality.update(dict(
         auc_count_q1=auc_q1,
@@ -118,16 +116,16 @@ def main(conf):
         FieldsTrain.is_duplicate,
         FieldsTrain.freq_q1,
         FieldsTrain.freq_q2,
-        FieldsTrain.count_q1,
-        FieldsTrain.count_q2
+        FieldsTrain.hash_q1,
+        FieldsTrain.hash_q2
     ]].to_csv(join_path(dump_dir, 'train.csv'), index=False)
 
     test_df[[
         FieldsTest.test_id,
         FieldsTest.freq_q1,
         FieldsTest.freq_q2,
-        FieldsTest.count_q1,
-        FieldsTest.count_q2
+        FieldsTest.hash_q1,
+        FieldsTest.hash_q2
     ]].to_csv(join_path(dump_dir, 'test.csv'), index=False)
 
 

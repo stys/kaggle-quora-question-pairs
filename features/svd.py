@@ -132,6 +132,8 @@ def main(conf):
 
         logging.info('Computing train SVD features')
         U = X.dot(VT.transpose()).dot(Sinv)
+        logging.info('Train features variance: %s', np.var(U, axis=0))
+
         features = map(lambda i: f + '_%d' % i, range(U.shape[1]))
         if cnf.get('model.transform', None) == 'stack':
             features_q1 = map(lambda s: s + '_q1', features)
@@ -163,15 +165,24 @@ def main(conf):
             X = compute_feature_matrix(test_df, vectorizer, combine=cnf.get('model.transform', None))
 
             logging.info('Writing test feature matrix dump')
+            save_feature_matrix(X, test_features_matrix_file)
 
         U = X.dot(VT.transpose()).dot(Sinv)
         logging.info('Test features variance: %s', np.var(U, axis=0))
 
         logging.info('Computing test SVD features')
         if cnf.get('model.transform', None) == 'stack':
+            logging.info('Computing q1 test SVD features')
             test_features_df_q1 = pd.DataFrame(U[:test_df.shape[0], :], columns=features_q1)
+            test_df = pd.concat([test_df, test_features_df_q1], axis=1)
+            del test_features_df_q1
+
+            logging.info('Computing q2 test SVD features')
             test_features_df_q2 = pd.DataFrame(U[test_df.shape[0]:, :], columns=features_q2)
-            test_df = pd.concat([test_df, test_features_df_q1, test_features_df_q2], axis=1)
+            test_df = pd.concat([test_df, test_features_df_q2], axis=1)
+            del test_features_df_q2
+
+            logging.info('Computing svd distances')
             test_df['svd_dist_eucl'] = test_df.apply(lambda r: compute_svd_distance_eucl(r, f, ksvd), axis=1)
         else:
             test_features_df = pd.DataFrame(U, columns=features)

@@ -53,3 +53,7 @@ def reliability_curve(labels, predictions, nbins, sample_weights=None):
             jbin += 1
 
     return avg_label / weight_total, avg_pred / count
+
+
+def rescale(p, a, b):
+    return a * p / (a * p + b * (1 - p))

@@ -39,8 +39,8 @@ class Fields(object):
     # counters
     freq_q1 = 'freq_q1'
     freq_q2 = 'freq_q2'
-    count_q1 = 'count_q1'
-    count_q2 = 'count_q2'
+    hash_q1 = 'hash_q1'
+    hash_q2 = 'hash_q2'
 
     # fs-1
     len_q1 = 'len_q1'
@@ -67,6 +67,35 @@ class Fields(object):
     w2v_skew_q2 = 'w2v_skew_q2'
     w2v_kurt_q1 = 'w2v_kurt_q1'
     w2v_kurt_q2 = 'w2v_kurt_q2'
+
+    # glove
+    glove_wmd = 'glove_wmd'
+    glove_cos = 'glove_cos'
+    glove_city = 'glove_city'
+    glove_jacc = 'glove_jacc'
+    glove_canb = 'glove_canb'
+    glove_eucl = 'glove_eucl'
+    glove_mink = 'glove_mink'
+    glove_bray = 'glove_bray'
+    glove_skew_q1 = 'glove_skew_q1'
+    glove_skew_q2 = 'glove_skew_q2'
+    glove_kurt_q1 = 'glove_kurt_q1'
+    glove_kurt_q2 = 'glove_kurt_q2'
+
+    # fs-2 (fuzzy)
+    qratio = 'qratio'
+    wratio = 'wratio'
+    partial_ratio = 'partial_ratio'                         # Ignore punctuation marks
+    partial_token_set_ratio = 'partial_token_set_ratio'     # Ignore duplicating words, order and punctuation
+    partial_token_sort_ratio = 'partial_token_sort_ratio'   # Ignore order and punctuation
+    token_set_ratio = 'token_set_ratio'                     # Ignore duplicating words and order
+    token_sort_ratio = 'token_sort_ratio'                   # Ignore the words' order
+
+    # distances
+    jaccard = 'jaccard'
+    levenstein1 = 'levenstein1'
+    levenstein2 = 'levenstein2'
+    sorensen = 'sorensen'
 
 
 class FieldsTrain(Fields):

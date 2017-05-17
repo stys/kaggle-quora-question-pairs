@@ -24,7 +24,7 @@ from sklearn.metrics import log_loss, roc_auc_score, roc_curve
 from lib.project import project
 from lib.dataset import load_train_df, load_test_df, Fields, FieldsTrain, FieldsTest, submission
 from lib.utils import makedirs, dump_config, json_string_config
-from lib.quality import reliability_curve
+from lib.quality import reliability_curve, rescale
 
 
 def create_feature_map(features, feature_map_file):
@@ -70,6 +70,8 @@ def train_xgboost(X, y, w, **options):
             valid=dict(zip(['avg_label', 'avg_pred'], reliability_curve(y_valid, p_valid, nbins=50, sample_weights=w_valid)))
         )
     )
+
+    logging.info('Log-loss: %s', quality['ll'])
 
     quality['errors'] = dict(
         train=dict(
