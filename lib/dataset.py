@@ -97,6 +97,9 @@ class Fields(object):
     levenstein2 = 'levenstein2'
     sorensen = 'sorensen'
 
+    m_q1_q2_tf_svd0 = 'm_q1_q2_tf_svd0'
+    m_w1l_tfidf_oof = 'm_w1l_tfidf_oof'
+
 
 class FieldsTrain(Fields):
     id = 'id'
