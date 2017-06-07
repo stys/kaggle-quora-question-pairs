@@ -39,8 +39,26 @@ class Fields(object):
     # counters
     freq_q1 = 'freq_q1'
     freq_q2 = 'freq_q2'
-    hash_q1 = 'hash_q1'
-    hash_q2 = 'hash_q2'
+    intersect_q1_q2 = 'intersect_q1_q2'
+    intersect2_q1_q2 = 'intersect2_q1_q2'
+
+    # baseline
+    word_match = 'word_match'
+    jaccard = 'jaccard'
+    wc_diff = 'wc_diff'
+    wc_ratio = 'wc_ratio'
+    wc_diff_unique = 'wc_diff_unique'
+    wc_ratio_unique = 'wc_ratio_unique'
+    wc_diff_unq_stop = 'wc_diff_unq_stop'
+    wc_ratio_unique_stop = 'wc_ratio_unique_stop'
+    same_start = 'same_start'
+    char_diff = 'char_diff'
+    char_diff_unq_stop = 'char_diff_unq_stop'
+    total_unique_words = 'total_unique_words'
+    total_unq_words_stop = 'total_unq_words_stop'
+    char_ratio = 'char_ratio'
+    tfidf_wm = 'tfidf_wm'
+    tfidf_wm_stops = 'tfidf_wm_stops'
 
     # fs-1
     len_q1 = 'len_q1'
@@ -92,10 +110,28 @@ class Fields(object):
     token_sort_ratio = 'token_sort_ratio'                   # Ignore the words' order
 
     # distances
-    jaccard = 'jaccard'
+    # jaccard = 'jaccard'
     levenstein1 = 'levenstein1'
     levenstein2 = 'levenstein2'
     sorensen = 'sorensen'
+
+    # kcores
+    q1_kcores = 'q1_kcores'
+    q2_kcores = 'q2_kcores'
+
+    # mephistopheies
+    unigram_all_jaccard = 'unigram_all_jaccard'
+    unigram_all_jaccard_max = 'unigram_all_jaccard_max'
+    bigram_all_jaccard = 'bigram_all_jaccard'
+    bigram_all_jaccard_max = 'bigram_all_jaccard_max'
+    trigram_all_jaccard = 'trigram_all_jaccard'
+    trigram_all_jaccard_max = 'trigram_all_jaccard_max'
+    trigram_tfidf_cosine = 'trigram_tfidf_cosine'
+    trigram_tfidf_l2_euclidean = 'trigram_tfidf_l2_euclidean'
+    m_q1_q2_tf_svd0 = 'm_q1_q2_tf_svd0'
+    m_q1_q2_tf_svd1 = 'm_q1_q2_tf_svd1'
+    m_q1_q2_tf_svd2 = 'm_q1_q2_tf_svd2'
+    m_w1l_tfidf_oof = 'm_w1l_tfidf_oof'
 
 
 class FieldsTrain(Fields):

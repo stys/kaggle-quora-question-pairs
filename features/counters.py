@@ -11,6 +11,7 @@ import logging
 from os import makedirs
 from os.path import join as join_path
 from itertools import count
+from collections import defaultdict
 
 import numpy as np
 import pandas as pd
@@ -36,54 +37,43 @@ class HashCounter(object):
         return self.data[q1], self.data[q2]
 
 
-def counters(train_df, test_df, **options):
+def compute_counters(train_df, test_df, **options):
+    ques = pd.concat([train_df[['question1', 'question2']], test_df[['question1', 'question2']]], axis=0).reset_index(drop='index')
+    q_dict = defaultdict(set)
+    for i in range(ques.shape[0]):
+        q_dict[ques.question1[i]].add(ques.question2[i])
+        q_dict[ques.question2[i]].add(ques.question1[i])
 
-    # build collection of all unique questions
-    questions = pd.concat([
-        train_df[[FieldsTrain.question1]].rename(columns={'question1': 'q'}),
-        train_df[[FieldsTrain.question2]].rename(columns={'question2': 'q'}),
-        test_df[[FieldsTest.question1]].rename(columns={'question1': 'q'}),
-        test_df[[FieldsTest.question2]].rename(columns={'question2': 'q'})
-    ], ignore_index=True)
+    def q1_freq(row):
+        return (len(q_dict[row['question1']]))
 
-    counts = questions['q'].value_counts().to_dict()
+    def q2_freq(row):
+        return (len(q_dict[row['question2']]))
 
-    train_df[FieldsTrain.freq_q1] = train_df[FieldsTrain.question1].map(lambda q: np.log(counts.get(q, 1)))
-    train_df[FieldsTrain.freq_q2] = train_df[FieldsTrain.question2].map(lambda q: np.log(counts.get(q, 1)))
+    def q1_q2_intersect(row):
+        return (len(set(q_dict[row['question1']]).intersection(set(q_dict[row['question2']]))))
 
-    test_df[FieldsTest.freq_q1] = test_df[FieldsTest.question1].map(lambda q: np.log(counts.get(q, 1)))
-    test_df[FieldsTest.freq_q2] = test_df[FieldsTest.question2].map(lambda q: np.log(counts.get(q, 1)))
+    def q1_q2_intersect_second_order(row):
+        q1 = row['question1']
+        q2 = row['question2']
 
-    correlation = train_df[[FieldsTrain.is_duplicate, FieldsTrain.freq_q1, FieldsTrain.freq_q2]].corr()
-    auc_q1 = roc_auc_score(train_df[FieldsTrain.is_duplicate], train_df[FieldsTrain.freq_q1])
-    auc_q2 = roc_auc_score(train_df[FieldsTrain.is_duplicate], train_df[FieldsTrain.freq_q2])
+        q1_neighbours = set(q_dict[q1])
+        q1_neighbours_second_order = set(k for q in q1_neighbours for k in set(q_dict[q]) if k != q1 and k != q2)
 
-    logging.info("Frequency of question1 AUC=%s", auc_q1)
-    logging.info("Frequency of question2 AUC=%s", auc_q2)
+        q2_neighbours = set(q_dict[q2])
+        q2_neighbours_second_order = set(k for q in q2_neighbours for k in set(q_dict[q]) if k != q1 and k != q2)
 
-    quality = dict(
-        auc_freq_q1=auc_q1,
-        auc_freq_q2=auc_q2,
-        correlation_freq=correlation.to_json()
-    )
+        return len(q1_neighbours_second_order.intersection(q2_neighbours_second_order))
 
-    hashing = HashCounter()
-    train_df['hash_q1'], train_df['hash_q2'] = zip(*train_df.apply(lambda r: hashing.update(r[Fields.question1], r[Fields.question2]), axis=1))
-    test_df['hash_q1'], test_df['hash_q2'] = zip(*test_df.apply(lambda r: hashing.update(r[Fields.question1], r[Fields.question2]), axis=1))
+    train_df[Fields.intersect_q1_q2] = train_df.apply(q1_q2_intersect, axis=1, raw=True)
+    train_df[Fields.intersect2_q1_q2] = train_df.apply(q1_q2_intersect_second_order, axis=1, raw=True)
+    train_df[Fields.freq_q1] = train_df.apply(q1_freq, axis=1, raw=True)
+    train_df[Fields.freq_q2] = train_df.apply(q2_freq, axis=1, raw=True)
 
-    correlation = train_df[[FieldsTrain.is_duplicate, FieldsTrain.hash_q1, FieldsTrain.hash_q2]].corr()
-    auc_q1 = roc_auc_score(train_df[FieldsTrain.is_duplicate], train_df[FieldsTrain.hash_q1])
-    auc_q2 = roc_auc_score(train_df[FieldsTrain.is_duplicate], train_df[FieldsTrain.hash_q2])
-
-    logging.info("Hash of question1 AUC=%s", auc_q1)
-    logging.info("Hash of question2 AUC=%s", auc_q2)
-    print correlation
-    quality.update(dict(
-        auc_count_q1=auc_q1,
-        auc_count_q2=auc_q2
-    ))
-
-    return quality, counts
+    test_df[Fields.intersect_q1_q2] = test_df.apply(q1_q2_intersect, axis=1, raw=True)
+    test_df[Fields.intersect2_q1_q2] = test_df.apply(q1_q2_intersect_second_order, axis=1, raw=True)
+    test_df[Fields.freq_q1] = test_df.apply(q1_freq, axis=1, raw=True)
+    test_df[Fields.freq_q2] = test_df.apply(q2_freq, axis=1, raw=True)
 
 
 def main(conf):
@@ -94,7 +84,7 @@ def main(conf):
     test_df = load_test_df(conf['counters.dataset'])
 
     logging.info('Computing question frequencies')
-    quality, counts = counters(train_df, test_df)
+    compute_counters(train_df, test_df)
 
     logging.info('Writing dump')
     dump_dir = conf['counters.dump.dir']
@@ -105,27 +95,21 @@ def main(conf):
         if e.errno != errno.EEXIST:
             raise
 
-    with open(join_path(dump_dir, 'quality.json'), 'w') as quality_file:
-        json.dump(quality, quality_file)
-
-    counts_file = join_path(dump_dir, 'counts.pkl')
-    joblib.dump(counts, counts_file)
-
     train_df[[
         FieldsTrain.id,
         FieldsTrain.is_duplicate,
         FieldsTrain.freq_q1,
         FieldsTrain.freq_q2,
-        FieldsTrain.hash_q1,
-        FieldsTrain.hash_q2
+        FieldsTrain.intersect_q1_q2,
+        FieldsTrain.intersect2_q1_q2
     ]].to_csv(join_path(dump_dir, 'train.csv'), index=False)
 
     test_df[[
         FieldsTest.test_id,
         FieldsTest.freq_q1,
         FieldsTest.freq_q2,
-        FieldsTest.hash_q1,
-        FieldsTest.hash_q2
+        FieldsTest.intersect_q1_q2,
+        FieldsTest.intersect2_q1_q2
     ]].to_csv(join_path(dump_dir, 'test.csv'), index=False)
 
 

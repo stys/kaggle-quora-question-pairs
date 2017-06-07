@@ -202,7 +202,7 @@ def main(conf):
     model.save_model(model_file)
 
     logging.info('Writing quality')
-    plot_quality(quality, dump_dir)
+    # plot_quality(quality, dump_dir)
 
     logging.info('Writing top errors')
     errors_file = join_path(dump_dir, 'errors.csv')
@@ -218,7 +218,7 @@ def main(conf):
             fh.write('%d,%s,%s,%s,%s\n' % (1, e[0], q1[e[1]], q2[e[1]], 'valid'))
 
     logging.info('Writing progress file')
-    plot_progress(progress, dump_dir)
+    # plot_progress(progress, dump_dir)
     progress_file = join_path(dump_dir, 'progress.json')
     with open(progress_file, 'w') as fh:
         json.dump(progress, fh)

@@ -178,15 +178,18 @@ def train(X, y, skf, class_weight, **options):
 
 def main(conf):
     logging.info('Loading train dataset')
-    train_df = load_train_df()
+    train_df = load_train_df(conf['dataset_raw'])
 
     logging.info('Loading test dataset')
-    test_df = load_test_df()
+    test_df = load_test_df(conf['dataset_raw'])
 
     class_weight = {int(c['class']): c['weight'] for c in conf['weights']}
 
     for w, cnf in conf['linear'].iteritems():
         if not cnf.get_bool('enabled', True):
+            continue
+
+        if w == 'dataset':
             continue
 
         logging.info('Start training linear model: %s', w)

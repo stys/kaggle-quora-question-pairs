@@ -35,11 +35,14 @@ def create_feature_map(features, feature_map_file):
 
 def train_xgboost(X, y, w, **options):
 
-    test_size = options.get('test_size') or 0.2
-    random_state = options.get('seed') or 0
+    test_size = options.get('test_size') or 0.01
+    random_state = options.get('seed') or 31
 
     X_train, X_valid, y_train, y_valid, w_train, w_valid, idx_train, idx_valid = \
         train_test_split(X, y, w, range(len(y)), test_size=test_size, random_state=random_state)
+
+    logging.info('Train size: %s', X_train.shape)
+    logging.info('Test size: %s', X_valid.shape)
 
     dtrain = xgb.DMatrix(X_train, label=y_train, weight=w_train)
     dvalid = xgb.DMatrix(X_valid, label=y_valid, weight=w_valid)
@@ -160,6 +163,14 @@ def main(conf):
 
     feature_map_file = join_path(dump_dir, 'xgb.fmap')
     create_feature_map(features, feature_map_file)
+
+    train_df_flipped = train_df.copy()
+    for flip in conf['flip']:
+        train_df_flipped[flip[0]] = train_df[[flip[1]]]
+        train_df_flipped[flip[1]] = train_df[[flip[0]]]
+
+    train_df = pd.concat([train_df, train_df_flipped], axis=0, ignore_index=True)
+    logging.info('Train dataset: %s', train_df.shape)
 
     y = train_df[[FieldsTrain.is_duplicate]].values.flatten()
     logging.info('Train dataset CTR: %s', y.sum() / len(y))

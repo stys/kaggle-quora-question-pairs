@@ -11,11 +11,10 @@ from os.path import join as join_path
 import numpy as np
 
 from scipy.special import logit
-from sklearn.utils.extmath import safe_sparse_dot
 
 from lib.project import project
 from lib.utils import makedirs
-from lib.dataset import load_train_df, load_test_df, Fields, FieldsTrain, FieldsTest, skfold
+from lib.dataset import load_train_df, load_test_df, FieldsTrain, FieldsTest, skfold
 from lib.quality import reliability_curve
 from lib.utils import dump_config
 
@@ -24,10 +23,9 @@ from features.linear import load_feature_matrix, save_feature_matrix
 from sklearn.metrics import log_loss, roc_auc_score, roc_curve
 from sklearn.externals import joblib
 
-from keras.models import Sequential, load_model, save_model
-from keras.layers import Dense, Activation
-
 from svd import train_vectorizer, compute_feature_matrix, compute_svd
+
+import xgboost as xgb
 
 from matplotlib import pyplot as plt
 
@@ -64,49 +62,37 @@ def plot_quality(quality, img_dir):
     fig2.clf()
 
 
-def train_ff(X, y, skf, **options):
+def train_xgb(X, y, skf, **options):
     quality = dict(folds=[], full=dict())
     predictions = np.zeros(len(y))
-    input_dim = X.shape[1]
 
     dump_dir = options.get('dump_dir') or '.'
-
-    layers = options.get('layers')
-    activations = options.get('activations')
-    assert len(layers) == len(activations)
-
-    method = options.get('method', 'adam')
-    epochs = options.get('epochs', 10)
-    batch_size = options.get('batch_size', 100)
 
     for i, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
         logging.info('Cross-validation fold: %d', i)
         X_train = X[train_idx]
         y_train = y[train_idx]
 
-        dump_file = join_path(dump_dir, 'model_%d.pkl' % i)
+        X_valid = X[valid_idx]
+        y_valid = y[valid_idx]
+
+        dump_file = join_path(dump_dir, 'model_%d.bin' % i)
         try:
             logging.info('Loading model for fold %d', i)
-            f = load_model(dump_file)
+            f = xgb.Booster({'nthread': 4})
+            f.load_model(dump_file)
         except:
             logging.info('Training model on fold %d', i)
-            logging.info('Input dimensions: %d', input_dim)
 
-            f = Sequential()
-            f.add(Dense(layers[0], activation=activations[0], input_dim=input_dim))
+            dtrain = xgb.DMatrix(X_train, label=y_train)
+            dvalid = xgb.DMatrix(X_valid, label=y_valid)
 
-            for layer, layer_size in enumerate(layers[1:]):
-                f.add(Dense(layer_size, activation=activations[layer]))
+            eval_list = [(dtrain, 'train'), (dvalid, 'valid')]
 
-            f.add(Dense(1, activation='sigmoid'))
+            f = xgb.train(options, dtrain, options['num_round'], eval_list)
+            f.save_model(f, dump_file)
 
-            f.compile(loss='binary_crossentropy', optimizer=method, metrics=['accuracy'])
-            f.fit(X_train, y_train, epochs=epochs, batch_size=batch_size)
-
-            logging.info('Writing model dump')
-            save_model(f, dump_file)
-
-        p_train = f.predict_proba(X_train).flatten()
+        p_train = f.predict(X_train)
 
         ll_train = log_loss(y_train, p_train)
         auc_train = roc_auc_score(y_train, p_train)
@@ -116,10 +102,7 @@ def train_ff(X, y, skf, **options):
         fpr_train, tpr_train, _ = roc_curve(y_train, p_train, pos_label=1)
         y_avg_train, p_avg_train = reliability_curve(y_train, p_train, nbins=50)
 
-        X_valid = X[valid_idx]
-        y_valid = y[valid_idx]
-
-        p_valid = f.predict_proba(X_valid).flatten()
+        p_valid = f.predict(X_valid)
         ll_valid = log_loss(y_valid, p_valid)
         auc_valid = roc_auc_score(y_valid, p_valid)
 
@@ -149,14 +132,14 @@ def train_ff(X, y, skf, **options):
 
 
 def main(conf):
-    dump_dir = conf['svdff.dump.dir']
+    dump_dir = conf['svdxgb.dump.dir']
     makedirs(dump_dir)
 
     dump_config_file = join_path(dump_dir, 'application.conf')
     dump_config(conf, dump_config_file)
 
     logging.info('Loading train dataset')
-    train_df = load_train_df(conf['svdff.dataset'])
+    train_df = load_train_df(conf['svdxgb.dataset'])
 
     y = train_df['is_duplicate'].values
 
@@ -167,7 +150,7 @@ def main(conf):
     except:
         logging.info('Loading vectorizer dump failed')
         logging.info('Traininig vectorizer')
-        vectorizer = train_vectorizer(train_df, **conf['svdff.vectorizer'])
+        vectorizer = train_vectorizer(train_df, **conf['svdxgb.vectorizer'])
 
         logging.info('Writing vectorizer dump')
         joblib.dump(vectorizer, vectorizer_file)
@@ -186,7 +169,7 @@ def main(conf):
         save_feature_matrix(X, features_file)
 
     logging.info('Loading SVD decomposition')
-    k = conf['svdff.svd'].get_int('k')
+    k = conf['svdxgb.svd'].get_int('k')
     singular_values_file = join_path(dump_dir, 'singular_values.txt')
     singular_vectors_file = join_path(dump_dir, 'singular_vectors.npz')
     try:
@@ -196,7 +179,7 @@ def main(conf):
     except:
         logging.info('Loading SVD decomposition failed')
         logging.info('Computing SVD decomposition')
-        S, VT = compute_svd(X.asfptype(), **conf['svdff.svd'])
+        S, VT = compute_svd(X.asfptype(), **conf['svdxgb.svd'])
 
         logging.info('Writing singular values to file')
         np.savetxt(singular_values_file, S)
@@ -216,7 +199,7 @@ def main(conf):
     logging.info('Training feature matrix: %s', U.shape)
 
     logging.info('Training feed-forward neural networks')
-    quality, predictions = train_ff(U, y, skfold(), dump_dir=dump_dir, **conf['svdff.ff'])
+    quality, predictions = train_xgb(U, y, skfold(), dump_dir=dump_dir, **conf['svdxgb.model'])
 
     logging.info('Plotting quality metrics')
     quality_dir = join_path(dump_dir, 'quality')
@@ -227,16 +210,16 @@ def main(conf):
         plot_quality(q, img_dir)
 
     logging.info('Writing train features')
-    train_df['svdff'] = predictions
+    train_df['svdxgb'] = predictions
 
     train_df[[
         FieldsTrain.id,
         FieldsTrain.is_duplicate,
-        'svdff'
+        'svdxgb'
     ]].to_csv(join_path(dump_dir, 'train.csv'), index=False)
 
     logging.info('Loading test dataset')
-    test_df = load_test_df(conf['svdff.dataset'])
+    test_df = load_test_df(conf['svdxgb.dataset'])
 
     logging.info('Computing test features')
     X = compute_feature_matrix(test_df, vectorizer, combine='stack')
@@ -247,19 +230,24 @@ def main(conf):
     logging.info('Symmetrizing input features')
     Uq1, Uq2 = np.vsplit(U, 2)
     U = np.hstack([(Uq1 + Uq2) / 2.0, (Uq1 - Uq2) / 2.0])
+    del Uq1, Uq2
+
+    dtest = xgb.DMatrix(U)
+    del U
 
     logging.info('Applying models to test dataset')
-    test_df['svdff'] = np.zeros(U.shape[0])
+    test_df['svdxgb'] = np.zeros(U.shape[0])
     for q in quality['folds']:
-        f = load_model(q['dump'])
-        p = f.predict_proba(U).flatten()
-        test_df['svdff'] = test_df['svdff'] + logit(p)
-    test_df['svdff'] = test_df['svdff'] / len(quality['folds'])
+        f = xgb.Booster({'nthread': 4})
+        f.load_model(q['dump'])
+        p = f.predict(dtest)
+        test_df['svdxgb'] = test_df['svdxgb'] + logit(p)
+    test_df['svdxgb'] = test_df['svdxgb'] / len(quality['folds'])
 
     logging.info('Writing test dataset')
     test_df[[
         FieldsTest.test_id,
-        'svdff',
+        'svdxgb',
     ]].to_csv(join_path(dump_dir, 'test.csv'), index=False)
 
 
