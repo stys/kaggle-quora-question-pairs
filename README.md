@@ -2,7 +2,7 @@ Scripts for Kaggle Quora Duplicate Questions competition
 
 https://www.kaggle.com/c/quora-question-pairs
 
-Final ranking #87 with private leaderbord score of 0.14137
+Final ranking #79 with private leaderbord score of 0.14137
 
 Most features were adopted from Kaggle kernels and discussions for this competition: 
 
